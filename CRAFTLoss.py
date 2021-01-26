@@ -24,7 +24,7 @@ class CRAFTLoss(Module):
         
     def forward(self, y_pred_maps, y_target_maps):
         '''
-        y_pred_maps: numpy array of size (B x 2 x H x W)
-        y_target_maps: numpy array of shape (B x 2 x H x W)
+        y_pred_maps: numpy array of size (B x H x W x 2)
+        y_target_maps: numpy array of shape (B x H x W x 2)
         '''
         pass
