@@ -3,7 +3,9 @@
 Implementation of CRAFT convolutional network architecture for text detection and localization in natural images.
 
 This neural network architecture was provided by the following paper (please read for more info): https://arxiv.org/pdf/1904.01941.pdf
+
 BibText Entry for this Paper:
+
 @article{DBLP:journals/corr/abs-1904-01941,
   author    = {Youngmin Baek and
                Bado Lee and
@@ -23,7 +25,9 @@ BibText Entry for this Paper:
 }
 
 This is intended for training on SynthText dataset which can be found here -- https://www.robots.ox.ac.uk/~vgg/data/scenetext/
+
 BibTex Entry for this Dataset:
+
 @InProceedings{Gupta16,
   author       = "Ankush Gupta and Andrea Vedaldi and Andrew Zisserman",
   title        = "Synthetic Data for Text Localisation in Natural Images",
