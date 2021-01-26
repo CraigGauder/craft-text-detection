@@ -1,7 +1,12 @@
+import os, sys
 import numpy as np
 import cv2
+import pickle
 import scipy.io
+import scipy.stats as stats
 from PIL import Image
+from shapely import geometry as geo
+
 
 class SynthTextDataPreprocesser:
     def __init__(self):
@@ -29,7 +34,7 @@ class SynthTextDataPreprocesser:
         for i in range(charBB.shape[-1]):
             h, mask = cv2.findHomography(base_gaussian_corners, charBB[:, :, i]//2, cv2.RANSAC,5.0)
             try:
-                warpedGaussian = cv2.warpPerspective(self.base_gaussian, h, (image.shape[-2]//2, image.shape[-1]//2))
+                warpedGaussian = cv2.warpPerspective(self.base_gaussian, h, (image.shape[0]//2, image.shape[1]//2))
             except Exception as e:
                 print(f'error finding homography: {e}')
                 return None
@@ -92,7 +97,7 @@ class SynthTextDataPreprocesser:
                 affinity_box = self.getAffinityBox(charBB[:, :, i], charBB[:, :, i+1])
                 h, mask = cv2.findHomography(base_gaussian_corners, affinity_box//2, cv2.RANSAC,5.0)
                 try:
-                    warpedGaussian = cv2.warpPerspective(self.base_gaussian, h, (image.shape[-2]//2, image.shape[-1]//2))
+                    warpedGaussian = cv2.warpPerspective(self.base_gaussian, h, (image.shape[0]//2, image.shape[1]//2))
                 except Exception as e:
                     print(f'error finding homography: {e}')
                     return None
@@ -109,14 +114,16 @@ class SynthTextDataPreprocesser:
         data_files = []
         data_labels = None
         for dir_name, dirs, files in os.walk(data_dir):
+            print(f'reading data from files in {dir_name}')
             if 'gt.mat' in files:
+                print('reading label data from gt.mat')
                 data_labels = scipy.io.loadmat(os.path.join(DATA_DIR, "gt.mat"))
                 imNames = np.array([x[0] for x in data_labels['imnames'][0]])
                 charBB = data_labels['charBB'][0]
                 wordBB = data_labels['wordBB'][0]
                 txt = data_labels['txt'][0]
             if not dirs and all([x.lower().endswith('jpg') or x.lower().endswith('jpeg') for x in files]):
-                data_files += [os.path.join(dir_name.replace(DATA_DIR, ''), im) for im in files]
+                data_files += [os.path.join(dir_name.replace(DATA_DIR, '').strip('/'), im) for im in files]
 
         if data_labels is None:
             raise Exception('gt.mat must be included in DATA_DIR')
@@ -130,25 +137,46 @@ class SynthTextDataPreprocesser:
         x_data = []
         y_data = []
         for i, imName in enumerate(imNames):
-            im = np.asarray(Image.open(os.path.join(data_dir, imName))).transpose((2, 0, 1))
+            im = np.asarray(Image.open(os.path.join(data_dir, imName)))
             char = charBB[i].transpose((1, 0, 2))
             regionScoreMap = self.createRegionScoreMap(im, char)
             affinityScoreMap = self.createAffinityScoreMap(im, char, txt[i])
             if regionScoreMap is not None and affinityScoreMap is not None:
-                y_data.append([regionScoreMap, affinityScoreMap])
+                y_data.append(np.array([regionScoreMap, affinityScoreMap]))
                 x_data.append(im)
             else:
                 print(f'image {imName} removed from training set (could not find homography matrices for all chars for perspective transform)')
-        x_data = np.array(x_data, dtype='object')
-        y_data = np.array(y_data, dtype='object')
-        assert (x_data.shape[0] == y_data.shape[0])
-        print(f'Number of training examples/labels generated: {x_data.shape[0]}')
+        assert (len(x_data) == len(y_data))
+        print(f'Number of training examples/labels generated: {len(x_data)}')
         
-        with open(os.path.join(DATA_DIR, 'trainingImages.pickle'), 'wb') as file:
-            pickle.dump(x_data)
-        with open(os.path.join(DATA_DIR, 'trainingLabels.pickle'), 'wb') as file:
-            pickle.dump(y_data)
-        print(f'saved x_data to {os.path.join(DATA_DIR, "trainingImages.pickle")}')
-        print(f'saved y_date to {os.path.join(DATA_DIR, "trainingLabels.pickle")}')
+        with open(os.path.join(DATA_DIR, 'dataImages.pickle'), 'wb') as file:
+            pickle.dump(x_data, file)
+        with open(os.path.join(DATA_DIR, 'dataLabels.pickle'), 'wb') as file:
+            pickle.dump(y_data, file)
+        print(f'saved x_data to {os.path.join(DATA_DIR, "dataImages.pickle")}')
+        print(f'saved y_date to {os.path.join(DATA_DIR, "dataLabels.pickle")}')
         
         return x_data, y_data
+
+
+
+if __name__ == '__main__':
+    DATA_DIR = "/Users/craiggauder/ML/craft-text-detection/data/SynthText"
+
+    print(f'processing data in {DATA_DIR}')
+    data_processor = SynthTextDataPreprocesser()
+    x, y = data_processor.getImageAndLabelData(DATA_DIR)
+
+    assert(len(x) == len(y))
+    print(f'dataImages.pickle contents -- complete bank of {len(x)} input images for model')
+    print(f'dataLabels.pickle contents -- {len(y)} corresponding label heat maps for {len(x)} input images')
+
+    with open(os.path.join(DATA_DIR, 'dataLabels.pickle'), 'rb') as file:
+        dataLabels = pickle.load(file)
+
+    print('dataLabel example (index 0):')
+    print(dataLabels[0])
+
+
+
+
