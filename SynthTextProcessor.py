@@ -34,11 +34,11 @@ class SynthTextDataPreprocesser:
         for i in range(charBB.shape[-1]):
             h, mask = cv2.findHomography(base_gaussian_corners, charBB[:, :, i]//2, cv2.RANSAC,5.0)
             try:
-                warpedGaussian = cv2.warpPerspective(self.base_gaussian, h, (image.shape[0]//2, image.shape[1]//2))
+                warpedGaussian = cv2.warpPerspective(self.base_gaussian, h, (image.shape[1]//2, image.shape[2]//2))
             except Exception as e:
                 print(f'error finding homography: {e}')
                 return None
-            warpedGaussians.append(warpedGaussian)
+            warpedGaussians.append(warpedGaussian.transpose())
 
         return sum(warpedGaussians)
     
@@ -97,11 +97,11 @@ class SynthTextDataPreprocesser:
                 affinity_box = self.getAffinityBox(charBB[:, :, i], charBB[:, :, i+1])
                 h, mask = cv2.findHomography(base_gaussian_corners, affinity_box//2, cv2.RANSAC,5.0)
                 try:
-                    warpedGaussian = cv2.warpPerspective(self.base_gaussian, h, (image.shape[0]//2, image.shape[1]//2))
+                    warpedGaussian = cv2.warpPerspective(self.base_gaussian, h, (image.shape[1]//2, image.shape[2]//2))
                 except Exception as e:
                     print(f'error finding homography: {e}')
                     return None
-                affinity_gaussians.append(warpedGaussian)
+                affinity_gaussians.append(warpedGaussian.transpose())
             curr_char_pos += len(w)
         
         return sum(affinity_gaussians)
@@ -139,10 +139,10 @@ class SynthTextDataPreprocesser:
         for i, imName in enumerate(imNames):
             im = np.asarray(Image.open(os.path.join(data_dir, imName)))
             char = charBB[i].transpose((1, 0, 2))
-            regionScoreMap = self.createRegionScoreMap(im, char)
-            affinityScoreMap = self.createAffinityScoreMap(im, char, txt[i])
+            regionScoreMap = self.createRegionScoreMap(im.transpose((2, 0, 1)), char)
+            affinityScoreMap = self.createAffinityScoreMap(im.transpose((2, 0, 1)), char, txt[i])
             if regionScoreMap is not None and affinityScoreMap is not None:
-                y_data.append(np.array([regionScoreMap, affinityScoreMap]))
+                y_data.append(np.array([regionScoreMap, affinityScoreMap]).transpose((1, 2, 0)))
                 x_data.append(im)
             else:
                 print(f'image {imName} removed from training set (could not find homography matrices for all chars for perspective transform)')
