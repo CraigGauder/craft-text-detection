@@ -4,7 +4,7 @@ import pickle
 import tensorflow as tf
 
 from tensorflow.keras.layers import Conv2D, MaxPool2D, BatchNormalization, ReLU, UpSampling2D
-from tensorflow.keras import Sequential
+from tensorflow.keras import Sequential, Model
 
 
 class DownConvBlock(tf.Module):
@@ -39,7 +39,7 @@ class UpConvBlock(tf.Module):
         x = self.conv_layers(x)
         return x
     
-class CRAFTNet(tf.Module):
+class CRAFTNet(Model):
     def __init__(self):
         super(CRAFTNet, self).__init__()
     
@@ -65,7 +65,7 @@ class CRAFTNet(tf.Module):
         
         self.lastUpsample = UpSampling2D(interpolation='bilinear')
         
-    def __call__(self, x):
+    def call(self, x):
         #VGG16-BN
         vgg16 = []
         z = self.downconv1(x)
@@ -92,13 +92,13 @@ class CRAFTNet(tf.Module):
         z = tf.image.resize(z, vgg16[-5].shape[1:3])
         
         z = self.upconv4(tf.concat([z, vgg16[-5]], 3))
-        feature = z
+        # feature = z
         
         #Final Conv to Output
         z = tf.image.resize(z, vgg16[-6].shape[1:3])
         y = self.finalConv(z)
         
-        return y, feature
+        return y #, feature
 
 
 if __name__ == '__main__':
